@@ -25,41 +25,61 @@ class MySignIn extends StatefulWidget {
 //the data related in the form
 class _MySignInState extends State<MySignIn> {
 
-  final myUsername = TextEditingController();
-  final myPassword = TextEditingController();
+  String current_user = "";
   final _saved = {
   "Natalie": <String>{},
   "Shreya": <String>{},
   "Helena": <String>{},
   "House": <String>{}
   };
-  @override
-  void dispose() {
-    myUsername.dispose();
-    myPassword.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Please enter your name'),
+        title: Text('Your House'),
       ),//appBar
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-
         child: Column (
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget> [
-            TextField (controller: myUsername),
-            // TextField (controller: myPassword),
+            ListTile(
+              title: const Text('Natalie'),
+              leading: Radio(
+                value: "Natalie",
+                groupValue: current_user,
+                onChanged: (String value) {
+                  setState(() {current_user = value;});
+                },
+              ),
+            ),
+            ListTile(
+              title: const Text('Helena'),
+              leading: Radio(
+                value: 'Helena',
+                groupValue: current_user,
+                onChanged: (String value) {
+                   setState(() {current_user = value;});
+                },
+              ),
+            ),
+              ListTile(
+              title: const Text('Shreya'),
+              leading: Radio(
+                value: 'Shreya',
+                groupValue: current_user,
+                onChanged: (String value) {
+                   setState(() {current_user = value;});
+                },
+              ),
+            ),
           ], //end of children list
         ), //end column
       ), //end body
       floatingActionButton: FloatingActionButton (
       onPressed: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => MyHomePage(myUsername.text, _saved)));
+        Navigator.push(context, MaterialPageRoute(builder: (context) => MyHomePage(current_user, _saved)));
       },//onPressed
       child: Icon(Icons.navigate_next),
     ),//Button
@@ -328,39 +348,51 @@ class _ShreyaState extends State<Shreya> {
 }
 
 
-class FinalList extends StatelessWidget {
+class FinalList extends StatefulWidget {
+  final String current_user;
+  final Map<String,Set<String>> _saved;
+
+  FinalList(this.current_user,this._saved);
+
+  @override
+  FinalListState createState() => FinalListState(this.current_user, this._saved);    
+}
+
+class FinalListState extends State<FinalList> {
   final String current_user;
   final Map<String,Set<String>> _saved;
   final List<ListItem> items = [];
 
   final tecs = {};
 
-  FinalList(this.current_user,this._saved);
+  FinalListState(this.current_user,this._saved);
 
   @override
   Widget build(BuildContext context) {
     final title = 'Final List';
     _saved.forEach((k,v) {
       if (_saved[k].length > 0) {
-      items.add(HeadingItem(k));
+        if (k != current_user){
+          items.add(HeadingItem(k));
+        } else {
+          items.add(HeadingItem('Your Items'));
+        }
       v.forEach((item)=>
       items.add(MessageItem(item)));
       items.add(CostItem(k));}
       }
     );
-    return MaterialApp(
-      title: title,
-      home: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           title: Text(title),
           actions: <Widget>[
             // action button
             IconButton(
-              icon: const Icon(Icons.person_outline),
+              icon: const Icon(Icons.navigate_next),
               onPressed: () {
                 Map<String,double> _costs = {};
                 tecs.forEach((k,v) {
-                  _costs[k] = v.text;
+                  _costs[k] = double.parse(v.text);
                 });
                 Navigator.push(context, MaterialPageRoute(builder: (context) => FinalPage(current_user, _costs)));
               },
@@ -399,9 +431,7 @@ class FinalList extends StatelessWidget {
               );
             }
           },
-        ),
-      ),
-    );
+        ));
   }
 }
 
@@ -423,6 +453,13 @@ class MessageItem implements ListItem {
 class CostItem implements ListItem{
   final String name;
   CostItem(this.name);
+}
+
+class UserItem implements ListItem{
+final String name;
+final String item;
+
+UserItem(this.name,this.item);
 }
 
 class FinalPage extends StatefulWidget {
@@ -452,18 +489,25 @@ class _FinalPageState extends State<FinalPage> {
     };
 
     double extra = 0.0;
+    double house_extra = 0.0;
 
     if (_costs.containsKey(current_user)) {
-      extra = extra+(extra*.1);
+      extra = extra+(_costs[current_user]*.1);
     }
 
     if (_costs.containsKey("House")) {
-      extra = extra+(_costs["House"]/3);
+      house_extra = _costs["House"]/3;
     }
 
     finalCosts.forEach((k,v) => {
-      if (_costs.containsKey(k)) {
-        finalCosts[k] = _costs[k]+extra      
+      if (_costs.containsKey(k) && k!=current_user && k!="House") {
+        finalCosts[k] = _costs[k]+extra+house_extra    
+      }
+      else if (_costs.containsKey(k) && k!="House") {
+        finalCosts[k]=_costs[k] + house_extra
+      }
+      else if (k!="House") {
+        finalCosts[k]=finalCosts[k] + house_extra
       }
     });
 
@@ -473,16 +517,19 @@ class _FinalPageState extends State<FinalPage> {
         padding: const EdgeInsets.all(16.0),
         itemCount: finalCosts.length,
         itemBuilder: /*1*/ (context, i) {
-          return _buildRow(names[i]);
+          return _buildRow(names[i],finalCosts[names[i]]);
         });
   }
   // #enddocregion _buildSuggestions
 
   // #docregion _buildRow
-  Widget _buildRow(String data) {
+  Widget _buildRow(String name, double cost) {
+    if (name == current_user) {
+      name = "Your total cost";
+    }
     return ListTile(
-      title: Text(data),
-      trailing: Text('\$'+_costs[data].toString())
+      title: Text(name),
+      trailing: Text('\$'+cost.toStringAsFixed(2))
       );
   }
 
@@ -492,10 +539,26 @@ class _FinalPageState extends State<FinalPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text("Final Prices"),
-        
       ),
-      body: _buildSuggestions(),
-    );
+      body: 
+       Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column (
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget> [
+            Expanded(
+              child: SizedBox(height: 200,
+                child:_buildSuggestions())),
+            const SizedBox(height: 30),
+            RaisedButton(
+              onPressed: () {},
+              child: const Text(
+                'Open Venmo',
+                style: TextStyle(fontSize: 20)
+              ),
+            ),
+          ]
+    )));
   }
 }
 
@@ -542,7 +605,7 @@ class _AddToListState extends State<AddToList> {
               onPressed: () {
                 items.add(newItem.text);
                 Firestore.instance.collection('users').document(docName).updateData({'items':items});
-                Navigator.push(context, MaterialPageRoute(builder: (context) => AddToList(docName, items)));
+                // Navigator.push(context, MaterialPageRoute(builder: (context) => AddToList(docName, items)));
               },
             )
           ], //end of children list
@@ -551,3 +614,100 @@ class _AddToListState extends State<AddToList> {
     );//Scaffold
   } //end build
 }//end home page
+
+
+// class AllList extends StatefulWidget {
+//   final String current_user;
+//   final Map<String,Set<String>> _saved;
+//   final List<ListItem> items;
+
+//   AllList(this.current_user,this._saved, this.items);
+
+//   @override
+//   AllListState createState() => AllListState(this.current_user, this._saved, this.items);    
+// }
+// class AllListState extends State<AllList> {
+//   final String current_user;
+//   final Map<String,Set<String>> _saved;
+//   final Map<String,Set<String>> allItems;
+//   final List<ListItem> items;
+
+//   AllListState(this.current_user,this._saved, this.items);
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final title = 'All Items';
+//     _saved.forEach((k,v) {
+//       if (_saved[k].length > 0) {
+//         if (k != current_user){
+//           items.add(HeadingItem(k));
+//         } else {
+//           items.add(HeadingItem('Your Items'));
+//         }
+//       v.forEach((item)=>
+//       items.add(UserItem(k,item)));
+//       }}
+//     );
+//     return Scaffold(
+//         appBar: AppBar(
+//           title: Text(title),
+//           actions: <Widget>[
+//             // action button
+//             // IconButton(
+//             //   icon: const Icon(Icons.navigate_next),
+//             //   onPressed: () {
+//             //     Navigator.push(context, MaterialPageRoute(builder: (context) => AddToList(current_user, items)));
+//             //   },
+//             // ),
+//             // IconButton(
+//             //   icon: const Icon(Icons.person_outline),
+//             //   onPressed: () {
+//             //     Navigator.push(context, MaterialPageRoute(builder: (context) => AddToList('Home', items)));
+//             //   },
+//             // ),
+//             IconButton(
+//               icon: const Icon(Icons.home),
+//               onPressed: () {
+//                 Navigator.push(context, MaterialPageRoute(builder: (context) => FinalPage(current_user, _saved)));
+//               },
+//             ),
+//             ],
+//         ),
+//         body: ListView.builder(
+//           // Let the ListView know how many items it needs to build.
+//           itemCount: items.length,
+//           // Provide a builder function. This is where the magic happens.
+//           // Convert each item into a widget based on the type of item it is.
+//           itemBuilder: (context, index) {
+//             final item = items[index];
+
+//             if (item is HeadingItem) {
+//               return ListTile(
+//                 title: Text(
+//                   item.heading,
+//                   style: Theme.of(context).textTheme.headline,
+//                 ),
+//               );
+//             } else if (item is UserItem) {
+//               final bool alreadySaved = _saved[item.name].contains(item.item);
+//               return ListTile(
+//                title: Text(item.item),
+//                 trailing: Icon(
+//                   alreadySaved ? Icons.favorite : Icons.favorite_border,
+//                   color: alreadySaved ? Colors.red : null,
+//                 ),
+//                 onTap: () {
+//                   setState(() {
+//                     if (alreadySaved) {
+//                       _saved[item.name].remove(item.item);
+//                     } else {
+//                       _saved[item.name].add(item.item);
+//                     }
+//                   });
+//                 },
+//               );
+//             } 
+//           },
+//         ));
+//   }
+// }
