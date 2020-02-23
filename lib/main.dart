@@ -2,14 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 void main() => runApp(MyApp());
-
-final dummySnapshot = [
- {"name": "Filip", "votes": 15},
- {"name": "Abraham", "votes": 14},
- {"name": "Richard", "votes": 11},
- {"name": "Ike", "votes": 10},
- {"name": "Justin", "votes": 1},
-];
+const IconData done_outline = IconData(0xe92f, fontFamily: 'MaterialIcons');
+const IconData add = IconData(0xe145, fontFamily: 'MaterialIcons');
 
 class MyApp extends StatelessWidget {
  @override
@@ -33,7 +27,12 @@ class _MySignInState extends State<MySignIn> {
 
   final myUsername = TextEditingController();
   final myPassword = TextEditingController();
-
+  final _saved = {
+  "Natalie": <String>{},
+  "Shreya": <String>{},
+  "Helena": <String>{},
+  "House": <String>{}
+  };
   @override
   void dispose() {
     myUsername.dispose();
@@ -58,39 +57,45 @@ class _MySignInState extends State<MySignIn> {
           ], //end of children list
         ), //end column
       ), //end body
-              floatingActionButton: FloatingActionButton (
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => MyHomePage(myUsername)));
-              },//onPressed
-            tooltip: 'Show me the value!',
-            child: Icon(Icons.text_fields),
-            ),//Button
+      floatingActionButton: FloatingActionButton (
+      onPressed: () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => MyHomePage(myUsername.text, _saved)));
+      },//onPressed
+      child: Icon(Icons.text_fields),
+    ),//Button
     );//Scaffold
   } //end build
 }//end home page
 
-
-
 class MyHomePage extends StatefulWidget {
-  final String name; 
-
-  MyHomePage(this.name);
+  final String current_user; 
+  final Map<String,Set<String>> _saved;
+  MyHomePage(this.current_user, this._saved);
 
  @override
  _MyHomePageState createState() {
-   return _MyHomePageState(name);
+   return _MyHomePageState(current_user, _saved);
  }
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final String name;
-
-  _MyHomePageState(this.name);
+  final String current_user;
+  final Map<String,Set<String>> _saved;
+  _MyHomePageState(this.current_user, this._saved);
 
  @override
  Widget build(BuildContext context) {
    return Scaffold(
-     appBar: AppBar(title: Text('Hi ' + name)),
+     appBar: AppBar(title: Text('Hi ' + current_user),
+     actions: <Widget>[
+            // action button
+            IconButton(
+              icon: Icon(done_outline),
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => FinalList(_saved)));
+              },
+            )]
+      ),
      body: _buildBody(context),
    );
  }
@@ -128,13 +133,18 @@ Widget _buildBody(BuildContext context) {
          title: Text(record.name),
          trailing: Text(record.num_groceries.toString()),
          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => Shreya(record.name, record.items.toList())));
+            Navigator.push(context, MaterialPageRoute(builder: (context) => Shreya(record.name, record.items.toList(), _saved)));
          },
        ),
      ),
    );
  }
 }
+
+// class Groceries {
+//   final String name;
+//   final List<String> items;
+// }
 
 class Record {
  final String name;
@@ -144,10 +154,9 @@ class Record {
 
  Record.fromMap(Map<String, dynamic> map, {this.reference})
      : assert(map['name'] != null),
-       assert(map['num_groceries'] != null),
        assert(map['items'] != null),
        name = map['name'],
-       num_groceries = map['num_groceries'],
+       num_groceries = map['items'].length,
        items = map['items'].cast<String>();
 
  Record.fromSnapshot(DocumentSnapshot snapshot)
@@ -168,7 +177,15 @@ class _UserPageState extends State<UserPage> {
  @override
  Widget build(BuildContext context) {
    return Scaffold(
-     appBar: AppBar(title: Text('User')),
+     appBar: AppBar(title: Text('User'),
+     actions: <Widget>[
+            // action button
+            IconButton(
+              icon: Icon(add),
+              onPressed: () {
+
+              },
+            )]),
      body: _buildBody(context),
    );
  }
@@ -212,23 +229,22 @@ Widget _buildBody(BuildContext context) {
 class Shreya extends StatefulWidget {
   final String name; 
   final List<String> items;
+  final Map<String,Set<String>> _saved;
 
-  Shreya(this.name, this.items);
+  Shreya(this.name, this.items, this._saved);
 
  @override
  _ShreyaState createState() {
-   return _ShreyaState(name, items);
+   return _ShreyaState(name, items, _saved);
  }
 }
 
 class _ShreyaState extends State<Shreya> {
   final String name;
   final List<String> items;
+  final Map<String,Set<String>> _saved;
 
-  _ShreyaState(this.name, this.items);
-
-  final Set<String> _saved = Set<String>();
-  final _biggerFont = const TextStyle(fontSize: 18.0);
+  _ShreyaState(this.name, this.items, this._saved);
 
   Widget _buildSuggestions() {
     // Future<DocumentSnapshot> items = Firestore.instance.collection('users').document('shreya').get();
@@ -245,7 +261,7 @@ class _ShreyaState extends State<Shreya> {
 
   // #docregion _buildRow
   Widget _buildRow(String data) {
-    final bool alreadySaved = _saved.contains(data);
+    final bool alreadySaved = _saved[name].contains(data);
     return ListTile(
       title: Text(data),
       trailing: Icon(
@@ -255,9 +271,9 @@ class _ShreyaState extends State<Shreya> {
       onTap: () {
         setState(() {
           if (alreadySaved) {
-            _saved.remove(data);
+            _saved[name].remove(data);
           } else {
-            _saved.add(data);
+            _saved[name].add(data);
           }
         });
       },
@@ -270,8 +286,95 @@ class _ShreyaState extends State<Shreya> {
     return Scaffold(
       appBar: AppBar(
         title: Text(name + "'s List"),
+        actions: <Widget>[
+            // action button
+            IconButton(
+              icon: Icon(add),
+              onPressed: () {
+              },
+            )],
       ),
       body: _buildSuggestions(),
     );
   }
+}
+
+
+class FinalList extends StatelessWidget {
+  final Map<String,Set<String>> _saved;
+  final List<ListItem> items = [];
+
+  FinalList(this._saved);
+
+  @override
+  Widget build(BuildContext context) {
+    final title = 'Final List';
+    _saved.forEach((k,v) {
+      items.add(HeadingItem(k));
+      v.forEach((item)=>
+      items.add(MessageItem(item)));}
+    );
+    return MaterialApp(
+      title: title,
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text(title),
+          actions: <Widget>[
+            // action button
+            IconButton(
+              icon: Icon(add),
+              onPressed: () {
+              },
+            )],
+        ),
+        body: ListView.builder(
+          // Let the ListView know how many items it needs to build.
+          itemCount: items.length,
+          // Provide a builder function. This is where the magic happens.
+          // Convert each item into a widget based on the type of item it is.
+          itemBuilder: (context, index) {
+            final item = items[index];
+
+            if (item is HeadingItem) {
+              return ListTile(
+                title: Text(
+                  item.heading,
+                  style: Theme.of(context).textTheme.headline,
+                ),
+              );
+            } else if (item is MessageItem) {
+              return ListTile(
+                title: Text(item.body),
+              );
+            } 
+      //       else if (item is CostItem) {
+      //         return ListTile(
+      //           leading: const Icon(Icons.person),
+      //           title: new TextField(
+      //           decoration: new InputDecoration(
+      //           hintText: "",
+      //     ),
+      //   ),
+      // ),
+            // }
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// The base class for the different types of items the list can contain.
+abstract class ListItem {}
+
+// A ListItem that contains data to display a heading.
+class HeadingItem implements ListItem {
+  final String heading;
+  HeadingItem(this.heading);
+}
+
+// A ListItem that contains data to display a message.
+class MessageItem implements ListItem {
+  final String body;
+  MessageItem(this.body);
 }
