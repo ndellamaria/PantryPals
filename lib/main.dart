@@ -44,7 +44,7 @@ class _MySignInState extends State<MySignIn> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Please enter your username and password'),
+        title: Text('Please enter your name'),
       ),//appBar
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -53,7 +53,7 @@ class _MySignInState extends State<MySignIn> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget> [
             TextField (controller: myUsername),
-            TextField (controller: myPassword),
+            // TextField (controller: myPassword),
           ], //end of children list
         ), //end column
       ), //end body
@@ -61,7 +61,7 @@ class _MySignInState extends State<MySignIn> {
       onPressed: () {
         Navigator.push(context, MaterialPageRoute(builder: (context) => MyHomePage(myUsername.text, _saved)));
       },//onPressed
-      child: Icon(Icons.text_fields),
+      child: Icon(Icons.navigate_next),
     ),//Button
     );//Scaffold
   } //end build
@@ -92,7 +92,7 @@ class _MyHomePageState extends State<MyHomePage> {
             IconButton(
               icon: Icon(done_outline),
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => FinalList(_saved)));
+                Navigator.push(context, MaterialPageRoute(builder: (context) => FinalList(current_user, _saved)));
               },
             )]
       ),
@@ -105,7 +105,6 @@ Widget _buildBody(BuildContext context) {
    stream: Firestore.instance.collection('users').snapshots(),
    builder: (context, snapshot) {
      if (!snapshot.hasData) return LinearProgressIndicator();
-
      return _buildList(context, snapshot.data.documents);
    },
  );
@@ -120,7 +119,10 @@ Widget _buildBody(BuildContext context) {
 
  Widget _buildListItem(BuildContext context, DocumentSnapshot data) {
    final record = Record.fromSnapshot(data);
-
+  String record_name = record.name;
+  if (record.name == current_user) {
+    record_name = "Your List";
+  }
    return Padding(
      key: ValueKey(record.name),
      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -130,10 +132,10 @@ Widget _buildBody(BuildContext context) {
          borderRadius: BorderRadius.circular(5.0),
        ),
        child: ListTile(
-         title: Text(record.name),
+         title: Text(record_name),
          trailing: Text(record.num_groceries.toString()),
          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => Shreya(record.name, record.items.toList(), _saved)));
+            Navigator.push(context, MaterialPageRoute(builder: (context) => Shreya(current_user,record.name, record.items.toList(), _saved)));
          },
        ),
      ),
@@ -227,24 +229,26 @@ Widget _buildBody(BuildContext context) {
 
 
 class Shreya extends StatefulWidget {
+  final String current_user;
   final String name; 
   final List<String> items;
   final Map<String,Set<String>> _saved;
 
-  Shreya(this.name, this.items, this._saved);
+  Shreya(this.current_user, this.name, this.items, this._saved);
 
  @override
  _ShreyaState createState() {
-   return _ShreyaState(name, items, _saved);
+   return _ShreyaState(current_user, name, items, _saved);
  }
 }
 
 class _ShreyaState extends State<Shreya> {
+  final String current_user;
   final String name;
   final List<String> items;
   final Map<String,Set<String>> _saved;
 
-  _ShreyaState(this.name, this.items, this._saved);
+  _ShreyaState(this.current_user, this.name, this.items, this._saved);
 
   Widget _buildSuggestions() {
     // Future<DocumentSnapshot> items = Firestore.instance.collection('users').document('shreya').get();
@@ -283,17 +287,41 @@ class _ShreyaState extends State<Shreya> {
    // #docregion RWS-build
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(name + "'s List"),
+    AppBar ap;
+  if (current_user == name) {
+      ap = AppBar(
+        title: Text("Your List"),
         actions: <Widget>[
             // action button
             IconButton(
               icon: Icon(add),
               onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => AddToList(name, items)));
               },
             )],
-      ),
+      );
+    } else if (name=='House') {
+      ap = AppBar(
+        title: Text("House List"),
+        actions: <Widget>[
+            // action button
+            IconButton(
+              icon: Icon(add),
+              onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => AddToList(name, items)));
+              },
+            )],
+      );
+    }
+    
+    else {
+    ap = AppBar(
+        title: Text(name + "'s List"),
+        
+      );
+    }
+    return Scaffold(
+      appBar: ap,
       body: _buildSuggestions(),
     );
   }
@@ -301,18 +329,24 @@ class _ShreyaState extends State<Shreya> {
 
 
 class FinalList extends StatelessWidget {
+  final String current_user;
   final Map<String,Set<String>> _saved;
   final List<ListItem> items = [];
 
-  FinalList(this._saved);
+  final tecs = {};
+
+  FinalList(this.current_user,this._saved);
 
   @override
   Widget build(BuildContext context) {
     final title = 'Final List';
     _saved.forEach((k,v) {
+      if (_saved[k].length > 0) {
       items.add(HeadingItem(k));
       v.forEach((item)=>
-      items.add(MessageItem(item)));}
+      items.add(MessageItem(item)));
+      items.add(CostItem(k));}
+      }
     );
     return MaterialApp(
       title: title,
@@ -322,8 +356,13 @@ class FinalList extends StatelessWidget {
           actions: <Widget>[
             // action button
             IconButton(
-              icon: Icon(add),
+              icon: const Icon(Icons.person_outline),
               onPressed: () {
+                Map<String,double> _costs = {};
+                tecs.forEach((k,v) {
+                  _costs[k] = v.text;
+                });
+                Navigator.push(context, MaterialPageRoute(builder: (context) => FinalPage(current_user, _costs)));
               },
             )],
         ),
@@ -346,17 +385,19 @@ class FinalList extends StatelessWidget {
               return ListTile(
                 title: Text(item.body),
               );
-            } 
-      //       else if (item is CostItem) {
-      //         return ListTile(
-      //           leading: const Icon(Icons.person),
-      //           title: new TextField(
-      //           decoration: new InputDecoration(
-      //           hintText: "",
-      //     ),
-      //   ),
-      // ),
-            // }
+            } else if (item is CostItem) {
+              TextEditingController  a = new TextEditingController();
+              tecs[item.name] = a;
+              return ListTile(
+                leading: const Icon(Icons.attach_money),
+                title: new TextField(
+                  controller: a,
+                  decoration: new InputDecoration(
+                    hintText: (item.name + "'s cost for items"),
+                  ),
+              ),
+              );
+            }
           },
         ),
       ),
@@ -378,3 +419,135 @@ class MessageItem implements ListItem {
   final String body;
   MessageItem(this.body);
 }
+
+class CostItem implements ListItem{
+  final String name;
+  CostItem(this.name);
+}
+
+class FinalPage extends StatefulWidget {
+  final String current_user; 
+  final Map<String, double> _costs;
+  FinalPage(this.current_user, this._costs);
+
+ @override
+ _FinalPageState createState() {
+   return _FinalPageState(current_user, _costs);
+ }
+}
+
+class _FinalPageState extends State<FinalPage> {
+  final String current_user;
+  final Map<String,double> _costs;
+  _FinalPageState(this.current_user, this._costs);
+
+  
+  Widget _buildSuggestions() {
+    // Future<DocumentSnapshot> items = Firestore.instance.collection('users').document('shreya').get();
+    // items.data['items']
+  final Map<String, double> finalCosts = {
+    "Natalie": 0.0,
+    "Shreya": 0.0,
+    "Helena": 0.0,
+    };
+
+    double extra = 0.0;
+
+    if (_costs.containsKey(current_user)) {
+      extra = extra+(extra*.1);
+    }
+
+    if (_costs.containsKey("House")) {
+      extra = extra+(_costs["House"]/3);
+    }
+
+    finalCosts.forEach((k,v) => {
+      if (_costs.containsKey(k)) {
+        finalCosts[k] = _costs[k]+extra      
+      }
+    });
+
+    List<String> names = finalCosts.keys.toList();
+
+    return ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemCount: finalCosts.length,
+        itemBuilder: /*1*/ (context, i) {
+          return _buildRow(names[i]);
+        });
+  }
+  // #enddocregion _buildSuggestions
+
+  // #docregion _buildRow
+  Widget _buildRow(String data) {
+    return ListTile(
+      title: Text(data),
+      trailing: Text('\$'+_costs[data].toString())
+      );
+  }
+
+   // #docregion RWS-build
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Final Prices"),
+        
+      ),
+      body: _buildSuggestions(),
+    );
+  }
+}
+
+
+// Define a custom Form widget.
+class AddToList extends StatefulWidget {
+  final String docName;
+  final List<String> items;
+  AddToList(this.docName, this.items);
+
+  @override
+  _AddToListState createState() => _AddToListState(docName, this.items);
+}
+
+//Define a corresponding State class, which holds
+//the data related in the form
+class _AddToListState extends State<AddToList> {
+  final String docName;
+  final List<String> items;
+  final newItem = TextEditingController();
+  
+  _AddToListState(this.docName, this.items);
+
+  @override
+  void dispose() {
+    newItem.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Enter New Item'),
+      ),//appBar
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column (
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget> [
+            TextField (controller: newItem), 
+            IconButton(
+              icon: Icon(add),
+              onPressed: () {
+                items.add(newItem.text);
+                Firestore.instance.collection('users').document(docName).updateData({'items':items});
+                Navigator.push(context, MaterialPageRoute(builder: (context) => AddToList(docName, items)));
+              },
+            )
+          ], //end of children list
+        ), //end column
+      ), //end body
+    );//Scaffold
+  } //end build
+}//end home page
