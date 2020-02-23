@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_sms/flutter_sms.dart';
+import 'package:sms/sms.dart';
 
 void main() => runApp(MyApp());
 const IconData done_outline = IconData(0xe92f, fontFamily: 'MaterialIcons');
@@ -24,8 +26,17 @@ class MySignIn extends StatefulWidget {
 //Define a corresponding State class, which holds
 //the data related in the form
 class _MySignInState extends State<MySignIn> {
+//Parameters
+  final myUsername = TextEditingController();
+  final myPassword = TextEditingController();
 
-  String current_user = "";
+  @override
+  void dispose() {
+    myUsername.dispose();
+    myPassword.dispose();
+    super.dispose();
+  }
+  // String current_user = "";
   final _saved = {
   "Natalie": <String>{},
   "Shreya": <String>{},
@@ -37,49 +48,55 @@ class _MySignInState extends State<MySignIn> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Your House'),
+        title: Text('Login'),
       ),//appBar
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column (
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget> [
-            ListTile(
-              title: const Text('Natalie'),
-              leading: Radio(
-                value: "Natalie",
-                groupValue: current_user,
-                onChanged: (String value) {
-                  setState(() {current_user = value;});
-                },
-              ),
-            ),
-            ListTile(
-              title: const Text('Helena'),
-              leading: Radio(
-                value: 'Helena',
-                groupValue: current_user,
-                onChanged: (String value) {
-                   setState(() {current_user = value;});
-                },
-              ),
-            ),
-              ListTile(
-              title: const Text('Shreya'),
-              leading: Radio(
-                value: 'Shreya',
-                groupValue: current_user,
-                onChanged: (String value) {
-                   setState(() {current_user = value;});
-                },
-              ),
-            ),
+            TextField (controller: myUsername,decoration: new InputDecoration(
+                    hintText: ("Username"),
+                  ),),
+            TextField (controller: myPassword,decoration: new InputDecoration(
+                    hintText: ("Password"),
+                  ),),
+            // ListTile(
+            //   title: const Text('Natalie'),
+            //   leading: Radio(
+            //     value: "Natalie",
+            //     groupValue: current_user,
+            //     onChanged: (String value) {
+            //       setState(() {current_user = value;});
+            //     },
+            //   ),
+            // ),
+            // ListTile(
+            //   title: const Text('Helena'),
+            //   leading: Radio(
+            //     value: 'Helena',
+            //     groupValue: current_user,
+            //     onChanged: (String value) {
+            //        setState(() {current_user = value;});
+            //     },
+            //   ),
+            // ),
+            //   ListTile(
+            //   title: const Text('Shreya'),
+            //   leading: Radio(
+            //     value: 'Shreya',
+            //     groupValue: current_user,
+            //     onChanged: (String value) {
+            //        setState(() {current_user = value;});
+            //     },
+            //   ),
+            // ),
           ], //end of children list
         ), //end column
       ), //end body
       floatingActionButton: FloatingActionButton (
       onPressed: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => MyHomePage(current_user, _saved)));
+        Navigator.push(context, MaterialPageRoute(builder: (context) => MyHomePage(myUsername.text, _saved)));
       },//onPressed
       child: Icon(Icons.navigate_next),
     ),//Button
@@ -289,8 +306,8 @@ class _ShreyaState extends State<Shreya> {
     return ListTile(
       title: Text(data),
       trailing: Icon(
-        alreadySaved ? Icons.favorite : Icons.favorite_border,
-        color: alreadySaved ? Colors.red : null,
+        alreadySaved ? Icons.check : Icons.check_circle_outline,
+        color: alreadySaved ? Colors.green : null,
       ),
       onTap: () {
         setState(() {
@@ -370,18 +387,24 @@ class FinalListState extends State<FinalList> {
   @override
   Widget build(BuildContext context) {
     final title = 'Final List';
+    String messageString = current_user + " went shopping! Here's a summary of their trip.";
+
     _saved.forEach((k,v) {
       if (_saved[k].length > 0) {
         if (k != current_user){
           items.add(HeadingItem(k));
+          messageString = messageString + k + "'s items: \n";
         } else {
           items.add(HeadingItem('Your Items'));
+          messageString = messageString + k + "'s items: \n";
         }
-      v.forEach((item)=>
-      items.add(MessageItem(item)));
-      items.add(CostItem(k));}
+      v.forEach((item) {
+      messageString = messageString + item + '\n';
+      items.add(MessageItem(item));
+      });
+      items.add(CostItem(k));
       }
-    );
+    });
     return Scaffold(
         appBar: AppBar(
           title: Text(title),
@@ -394,7 +417,7 @@ class FinalListState extends State<FinalList> {
                 tecs.forEach((k,v) {
                   _costs[k] = double.parse(v.text);
                 });
-                Navigator.push(context, MaterialPageRoute(builder: (context) => FinalPage(current_user, _costs)));
+                Navigator.push(context, MaterialPageRoute(builder: (context) => FinalPage(current_user, _costs, messageString)));
               },
             )],
         ),
@@ -465,18 +488,20 @@ UserItem(this.name,this.item);
 class FinalPage extends StatefulWidget {
   final String current_user; 
   final Map<String, double> _costs;
-  FinalPage(this.current_user, this._costs);
+  final String messageString;
+  FinalPage(this.current_user, this._costs, this.messageString);
 
  @override
  _FinalPageState createState() {
-   return _FinalPageState(current_user, _costs);
+   return _FinalPageState(current_user, _costs, messageString);
  }
 }
 
 class _FinalPageState extends State<FinalPage> {
   final String current_user;
   final Map<String,double> _costs;
-  _FinalPageState(this.current_user, this._costs);
+  String messageString;
+  _FinalPageState(this.current_user, this._costs, this.messageString);
 
   
   Widget _buildSuggestions() {
@@ -495,20 +520,21 @@ class _FinalPageState extends State<FinalPage> {
       extra = extra+(_costs[current_user]*.1);
     }
 
-    if (_costs.containsKey("House")) {
+    if (_costs.containsKey("House") && _costs["House"]!=0) {
       house_extra = _costs["House"]/3;
     }
 
-    finalCosts.forEach((k,v) => {
+    finalCosts.forEach((k,v) {
       if (_costs.containsKey(k) && k!=current_user && k!="House") {
-        finalCosts[k] = _costs[k]+extra+house_extra    
+        finalCosts[k] = _costs[k]+extra+house_extra;    
       }
       else if (_costs.containsKey(k) && k!="House") {
-        finalCosts[k]=_costs[k] + house_extra
+        finalCosts[k]=_costs[k] + house_extra;
       }
       else if (k!="House") {
-        finalCosts[k]=finalCosts[k] + house_extra
+        finalCosts[k]=finalCosts[k] + house_extra;
       }
+      messageString = messageString + k + " was charged: \$" + finalCosts[k].toStringAsFixed(2);
     });
 
     List<String> names = finalCosts.keys.toList();
@@ -536,6 +562,8 @@ class _FinalPageState extends State<FinalPage> {
    // #docregion RWS-build
   @override
   Widget build(BuildContext context) {
+
+
     return Scaffold(
       appBar: AppBar(
         title: Text("Final Prices"),
@@ -551,7 +579,11 @@ class _FinalPageState extends State<FinalPage> {
                 child:_buildSuggestions())),
             const SizedBox(height: 30),
             RaisedButton(
-              onPressed: () {},
+              onPressed: () {
+
+                // _sendSMS(messageString,["8154512285", "8438221283", "8432604372"]);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => DonePage()));
+              },
               child: const Text(
                 'Open Venmo',
                 style: TextStyle(fontSize: 20)
@@ -587,7 +619,7 @@ class _AddToListState extends State<AddToList> {
     newItem.dispose();
     super.dispose();
   }
-
+  String pressed = '';
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -604,10 +636,12 @@ class _AddToListState extends State<AddToList> {
               icon: Icon(add),
               onPressed: () {
                 items.add(newItem.text);
+                setState(() {pressed = newItem.text;});
                 Firestore.instance.collection('users').document(docName).updateData({'items':items});
                 // Navigator.push(context, MaterialPageRoute(builder: (context) => AddToList(docName, items)));
               },
-            )
+            ),
+            pressed != '' ? Text(pressed + ' was added to the list') : Text('')
           ], //end of children list
         ), //end column
       ), //end body
@@ -711,3 +745,41 @@ class _AddToListState extends State<AddToList> {
 //         ));
 //   }
 // }
+
+
+// Define a custom Form widget.
+class DonePage extends StatefulWidget {
+  @override
+  _DonePageState createState() => _DonePageState();
+}
+
+//Define a corresponding State class, which holds
+//the data related in the form
+class _DonePageState extends State<DonePage> {
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("You're Done!"),
+      ),//appBar
+      body: Center(
+        // padding: const EdgeInsets.all(16.0),
+        child: Column (
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget> [
+            Icon(Icons.check, color: Colors.green, size: 100.0,),
+            Text("You're done!", style: TextStyle(fontSize: 32)),
+          ], //end of children list
+        ), //end column
+      ), //end body
+    );//Scaffold
+  } //end build
+}//end home page
+
+void _sendSMS(String message, List<String> recipents) async {
+ String _result = await FlutterSms
+        .sendSMS(message: message, recipients: recipents)
+        .catchError((onError) {
+      print(onError);
+    });
+print(_result);
+}
